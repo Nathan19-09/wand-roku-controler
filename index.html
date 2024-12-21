@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wand to Roku Controller</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f0f0;
+      text-align: center;
+      padding: 20px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin: 10px;
+      cursor: pointer;
+      border: none;
+      border-radius: 5px;
+      background-color: #6200ea;
+      color: white;
+    }
+    button:hover {
+      background-color: #3700b3;
+    }
+    #status {
+      margin-top: 20px;
+      font-size: 18px;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <h1>Wand to Roku Controller</h1>
+  <p>Connect your Kano wand and control your Roku TV with magic!</p>
+
+  <button id="connectWand">Connect Wand</button>
+  <button onclick="sendRokuCommand('VolumeUp')">Volume Up</button>
+  <button onclick="sendRokuCommand('VolumeDown')">Volume Down</button>
+  <button onclick="sendRokuCommand('Home')">Home</button>
+
+  <p id="status">Status: Not Connected</p>
+
+  <script>
+    let wandDevice;
+    let server;
+
+    // Replace with your Roku TV's IP address
+    const ROKU_IP = '192.168.1.100';
+
+    document.getElementById('connectWand').addEventListener('click', async () => {
+      try {
+        wandDevice = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: ['battery_service'] // Replace with the Kano wand's service UUIDs if known
+        });
+
+        server = await wandDevice.gatt.connect();
+        document.getElementById('status').textContent = 'Status: Wand Connected';
+
+        // Example: Listening to battery level (if supported)
+        const batteryService = await server.getPrimaryService('battery_service');
+        const batteryLevelChar = await batteryService.getCharacteristic('battery_level');
+
+        batteryLevelChar.addEventListener('characteristicvaluechanged', (event) => {
+          const batteryLevel = event.target.value.getUint8(0);
+          console.log('Battery Level:', batteryLevel + '%');
+        });
+
+        await batteryLevelChar.startNotifications();
+
+      } catch (error) {
+        console.error('Error connecting to wand:', error);
+        document.getElementById('status').textContent = 'Status: Connection Failed';
+      }
+    });
+
+    function sendRokuCommand(command) {
+      fetch(`http://${ROKU_IP}:8060/keypress/${command}`, {
+        method: 'POST'
+      }).then(() => {
+        document.getElementById('status').textContent = `Status: Command '${command}' Sent`;
+      }).catch(error => {
+        console.error('Error sending command to Roku:', error);
+        document.getElementById('status').textContent = 'Status: Command Failed';
+      });
+    }
+  </script>
+</body>
+</html>
